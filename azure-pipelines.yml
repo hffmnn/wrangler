@@ -27,3 +27,47 @@ jobs:
           toolchain: nightly
       - script: cargo test --locked
         displayName: "cargo test --locked"
+
+  - job: dist_linux
+    displayName: "Dist Linux binary"
+    steps:
+      - template: ci/azure-install-rust.yml
+      - script: rustup target add x86_64-unknown-linux-musl
+      - script: |
+          sudo apt update -y
+          sudo apt install musl-tools -y
+        displayName: "Install musl-tools"
+      - script: |
+          set -ex
+          cargo build --target x86_64-unknown-linux-musl --features vendored-openssl --release
+      - template: ci/azure-create-tarball.yml
+        parameters:
+          artifacts: target/x86_64-unknown-linux-musl/release
+          name: dist_linux
+
+  - job: dist_darwin
+    displayName: "Dist Darwin binary"
+    pool:
+      vmImage: macOS-10.13
+    steps:
+      - template: ci/azure-install-rust.yml
+      - script: cargo build --release
+        env:
+          MACOSX_DEPLOYMENT_TARGET: 10.7
+      - template: ci/azure-create-tarball.yml
+        parameters:
+          name: dist_darwin
+
+  - job: dist_windows
+    displayName: "Dist Windows binary"
+    pool:
+      vmImage: vs2017-win2016
+    steps:
+      - template: ci/azure-install-rust.yml
+      - script: cargo build --release
+        env:
+          RUSTFLAGS: -Ctarget-feature=+crt-static
+      - template: ci/azure-create-tarball.yml
+        parameters:
+          name: dist_windows
+      - script: "%RUSTC_WRAPPER% -s"
